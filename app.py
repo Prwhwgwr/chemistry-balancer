@@ -1,26 +1,30 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import extra_streamlit_components as stx
 import datetime
 import time
 import os
-import gspread # Added the Google Sheets library!
+import gspread
 from chempy import balance_stoichiometry
 
 # --- Page Configuration ---
 st.set_page_config(page_title="🧪 Chemical Equation Balancer", page_icon="🧪", layout="centered")
 
-# --- Hide Branding (Deploy Button, Header, Footer) ---
+# --- Hide Branding (Deploy Button, Footer, Fork, Badge) ---
+# NOTE: Removed 'header {visibility: hidden;}' so the sidebar arrow comes back!
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
+            [data-testid="stToolbar"] {visibility: hidden !important;}
+            [data-testid="stViewerBadge"] {display: none !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- 1. Initialize Cookie Manager ---
-cookie_manager = stx.CookieManager(key="cookies")
+cookie_manager = stx.CookieManager(key="cookie_manager")
 
 # --- Initialize Session States ---
 if "is_premium" not in st.session_state:
@@ -29,20 +33,18 @@ if "daily_balances" not in st.session_state:
     st.session_state.daily_balances = 0
 if "history" not in st.session_state:
     st.session_state.history = []
-
-# --- NEW FIX: The Split-Second Delay ---
 if "logged_in" not in st.session_state:
-    time.sleep(0.5)
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 
-# --- 2. Check for existing cookies before setting default session states ---
+# --- 2. Check for existing cookies EVERY run ---
+# If a cookie exists in the browser, force the user to be logged in!
 saved_user = cookie_manager.get(cookie="saved_username")
 
-# Make sure it only logs in if the cookie actually has a real name inside it!
-if saved_user and saved_user != "":
+if saved_user is not None and saved_user != "":
     st.session_state.logged_in = True
     st.session_state.username = saved_user
-elif "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
 
 st.title("🧪 Chemical Equation Balancer")
 
@@ -63,9 +65,22 @@ if not st.session_state.logged_in:
                 if keep_signed_in:
                     expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
                     cookie_manager.set("saved_username", user_input_name.strip(), expires_at=expire_date)
-                    time.sleep(0.5)  
+                    
+                st.success("🚀 Login successful! Redirecting...")
                 
-                st.rerun()
+                # CRITICAL FIX: Use Javascript to refresh the browser after 1.5 seconds.
+                # This guarantees the browser has time to finish saving the cookie file!
+                components.html(
+                    """
+                    <script>
+                    setTimeout(function() {
+                        window.parent.location.reload();
+                    }, 1500);
+                    </script>
+                    """,
+                    height=0
+                )
+                st.stop() # Stops Python here so it doesn't interrupt the Javascript
             else:
                 st.error("Please enter a username!")
 
@@ -75,19 +90,23 @@ if st.session_state.logged_in:
     
     # --- LOGOUT BUTTON FIX ---
     if st.sidebar.button("🚪 Log Out"):
-        # 1. Overwrite the cookie with blank text and expire it "yesterday"
-        past_date = datetime.datetime.now() - datetime.timedelta(days=1)
-        cookie_manager.set("saved_username", "", expires_at=past_date)
-        cookie_manager.delete("saved_username")
+        cookie_manager.delete("saved_username") # Destroy the cookie
+        st.session_state.logged_in = False      # Reset session memory
+        st.session_state.username = ""
         
-        # 2. Completely wipe all session memory
-        st.session_state.clear()
-        
-        # 3. Wait a full second for the browser to register the death of the cookie
-        time.sleep(1)
-        
-        # 4. Refresh!
-        st.rerun()
+        st.sidebar.success("Logging out...")
+        # CRITICAL FIX: Javascript reload to ensure cookie is deleted cleanly
+        components.html(
+            """
+            <script>
+            setTimeout(function() {
+                window.parent.location.reload();
+            }, 1500);
+            </script>
+            """,
+            height=0
+        )
+        st.stop()
         
     tab1, tab2, tab3 = st.tabs(["🎛️ Balancer", "📜 History", "ℹ️ Help & Premium"])
 
@@ -140,7 +159,7 @@ if st.session_state.logged_in:
             else:
                 with st.spinner("Checking database..."):
                     try:
-                        # Connect to Google Cloud (Handles both Local and Internet Deployment)
+                        # Connect to Google Cloud
                         if os.path.exists('secrets.json'):
                             gc = gspread.service_account(filename='secrets.json')
                         else:
@@ -154,7 +173,7 @@ if st.session_state.logged_in:
                         cell = worksheet.find(search_code)
                         
                         if cell:
-                            # Check if it is used or unused (Column B is 2)
+                            # Check if it is used or unused
                             status = worksheet.cell(cell.row, 2).value
                             
                             if status.lower() == "unused":
@@ -165,8 +184,8 @@ if st.session_state.logged_in:
                                 
                                 st.session_state.is_premium = True
                                 st.success("🎉 Premium Activated! Enjoy unlimited balancing.")
-                                time.sleep(2) # Give them 2 seconds to read the success message
-                                st.rerun() # Refresh the app to unlock the premium features
+                                time.sleep(2) 
+                                st.rerun() 
                             else:
                                 st.error("❌ This code has already been used!")
                         else:
