@@ -22,14 +22,6 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # --- 1. Initialize Cookie Manager ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
 
-# --- 2. THE FIX: Streamlit Cookie Delay Hack ---
-# Streamlit needs a split-second on its very first load to read cookies from the browser.
-# This forces the app to wait 0.5s and reload once to successfully fetch the "Keep me signed in" data.
-if "cookies_initialized" not in st.session_state:
-    st.session_state.cookies_initialized = True
-    time.sleep(0.5)
-    st.rerun()
-
 # --- Initialize Session States ---
 if "is_premium" not in st.session_state:
     st.session_state.is_premium = False
@@ -39,11 +31,14 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 
-# --- 3. Check for existing cookies before loading app ---
+# --- 2. Check for existing cookies EVERY run ---
+# If a cookie exists in the browser, force the user to be logged in!
 saved_user = cookie_manager.get(cookie="saved_username")
 
-if saved_user and saved_user != "":
+if saved_user is not None and saved_user != "":
     st.session_state.logged_in = True
     st.session_state.username = saved_user
 
@@ -62,11 +57,14 @@ if not st.session_state.logged_in:
                 st.session_state.username = user_input_name.strip()
                 st.session_state.logged_in = True
                 
-                # Save to Cookie if Checkbox is ticked (Lasts 30 Days)
+                # Save to Cookie if Checkbox is ticked
                 if keep_signed_in:
                     expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
                     cookie_manager.set("saved_username", user_input_name.strip(), expires_at=expire_date)
-                    time.sleep(0.5)  
+                    
+                    # CRITICAL FIX: We MUST wait 1.2 seconds before rerunning!
+                    # This gives the web browser enough time to actually save the cookie file.
+                    time.sleep(1.2)  
                 
                 st.rerun()
             else:
@@ -79,9 +77,12 @@ if st.session_state.logged_in:
     # --- LOGOUT BUTTON FIX ---
     if st.sidebar.button("🚪 Log Out"):
         cookie_manager.delete("saved_username") # Destroy the cookie
-        st.session_state.clear()                # Wipe all session memory
-        time.sleep(0.5)                         # Let browser register deletion
-        st.rerun()                              # Refresh back to login screen
+        st.session_state.logged_in = False      # Reset session memory
+        st.session_state.username = ""
+        
+        # CRITICAL FIX: Give the browser time to delete the file before refreshing!
+        time.sleep(1.2)                         
+        st.rerun()                              
         
     tab1, tab2, tab3 = st.tabs(["🎛️ Balancer", "📜 History", "ℹ️ Help & Premium"])
 
@@ -134,7 +135,7 @@ if st.session_state.logged_in:
             else:
                 with st.spinner("Checking database..."):
                     try:
-                        # Connect to Google Cloud (Handles both Local and Internet Deployment)
+                        # Connect to Google Cloud
                         if os.path.exists('secrets.json'):
                             gc = gspread.service_account(filename='secrets.json')
                         else:
@@ -148,7 +149,7 @@ if st.session_state.logged_in:
                         cell = worksheet.find(search_code)
                         
                         if cell:
-                            # Check if it is used or unused (Column B is 2)
+                            # Check if it is used or unused
                             status = worksheet.cell(cell.row, 2).value
                             
                             if status.lower() == "unused":
@@ -159,8 +160,8 @@ if st.session_state.logged_in:
                                 
                                 st.session_state.is_premium = True
                                 st.success("🎉 Premium Activated! Enjoy unlimited balancing.")
-                                time.sleep(2) # Give them 2 seconds to read the success message
-                                st.rerun() # Refresh the app to unlock the premium features
+                                time.sleep(2) 
+                                st.rerun() 
                             else:
                                 st.error("❌ This code has already been used!")
                         else:
