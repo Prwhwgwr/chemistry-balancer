@@ -1,4 +1,6 @@
+
 import streamlit as st
+import streamlit.components.v1 as components
 import extra_streamlit_components as stx
 import datetime
 import time
@@ -62,11 +64,21 @@ if not st.session_state.logged_in:
                     expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
                     cookie_manager.set("saved_username", user_input_name.strip(), expires_at=expire_date)
                     
-                    # CRITICAL FIX: We MUST wait 1.2 seconds before rerunning!
-                    # This gives the web browser enough time to actually save the cookie file.
-                    time.sleep(1.2)  
+                st.success("🚀 Login successful! Redirecting...")
                 
-                st.rerun()
+                # CRITICAL FIX: Use Javascript to refresh the browser after 1.5 seconds.
+                # This guarantees the browser has time to finish saving the cookie file!
+                components.html(
+                    """
+                    <script>
+                    setTimeout(function() {
+                        window.parent.location.reload();
+                    }, 1500);
+                    </script>
+                    """,
+                    height=0
+                )
+                st.stop() # Stops Python here so it doesn't interrupt the Javascript
             else:
                 st.error("Please enter a username!")
 
@@ -80,9 +92,19 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False      # Reset session memory
         st.session_state.username = ""
         
-        # CRITICAL FIX: Give the browser time to delete the file before refreshing!
-        time.sleep(1.2)                         
-        st.rerun()                              
+        st.sidebar.success("Logging out...")
+        # CRITICAL FIX: Javascript reload to ensure cookie is deleted cleanly
+        components.html(
+            """
+            <script>
+            setTimeout(function() {
+                window.parent.location.reload();
+            }, 1500);
+            </script>
+            """,
+            height=0
+        )
+        st.stop()
         
     tab1, tab2, tab3 = st.tabs(["🎛️ Balancer", "📜 History", "ℹ️ Help & Premium"])
 
