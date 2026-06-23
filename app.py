@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
@@ -11,12 +10,15 @@ from chempy import balance_stoichiometry
 # --- Page Configuration ---
 st.set_page_config(page_title="🧪 Chemical Equation Balancer", page_icon="🧪", layout="centered")
 
-# --- Hide Branding (Deploy Button, Header, Footer) ---
+# --- Hide Branding (Deploy Button, Header, Footer, Fork, Badge) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
+            header {visibility: hidden;}
             .stDeployButton {display:none;}
+            [data-testid="stToolbar"] {visibility: hidden !important;}
+            [data-testid="stViewerBadge"] {display: none !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
