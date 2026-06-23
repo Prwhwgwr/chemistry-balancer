@@ -3,7 +3,7 @@ import extra_streamlit_components as stx
 import datetime
 import time
 import os
-import gspread # Added the Google Sheets library!
+import gspread
 from chempy import balance_stoichiometry
 
 # --- Page Configuration ---
@@ -20,7 +20,15 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- 1. Initialize Cookie Manager ---
-cookie_manager = stx.CookieManager(key="cookies")
+cookie_manager = stx.CookieManager(key="cookie_manager")
+
+# --- 2. THE FIX: Streamlit Cookie Delay Hack ---
+# Streamlit needs a split-second on its very first load to read cookies from the browser.
+# This forces the app to wait 0.5s and reload once to successfully fetch the "Keep me signed in" data.
+if "cookies_initialized" not in st.session_state:
+    st.session_state.cookies_initialized = True
+    time.sleep(0.5)
+    st.rerun()
 
 # --- Initialize Session States ---
 if "is_premium" not in st.session_state:
@@ -29,20 +37,15 @@ if "daily_balances" not in st.session_state:
     st.session_state.daily_balances = 0
 if "history" not in st.session_state:
     st.session_state.history = []
-
-# --- NEW FIX: The Split-Second Delay ---
 if "logged_in" not in st.session_state:
-    time.sleep(0.5)
+    st.session_state.logged_in = False
 
-# --- 2. Check for existing cookies before setting default session states ---
+# --- 3. Check for existing cookies before loading app ---
 saved_user = cookie_manager.get(cookie="saved_username")
 
-# Make sure it only logs in if the cookie actually has a real name inside it!
 if saved_user and saved_user != "":
     st.session_state.logged_in = True
     st.session_state.username = saved_user
-elif "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
 
 st.title("🧪 Chemical Equation Balancer")
 
@@ -59,7 +62,7 @@ if not st.session_state.logged_in:
                 st.session_state.username = user_input_name.strip()
                 st.session_state.logged_in = True
                 
-                # Save to Cookie if Checkbox is ticked
+                # Save to Cookie if Checkbox is ticked (Lasts 30 Days)
                 if keep_signed_in:
                     expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
                     cookie_manager.set("saved_username", user_input_name.strip(), expires_at=expire_date)
@@ -75,19 +78,10 @@ if st.session_state.logged_in:
     
     # --- LOGOUT BUTTON FIX ---
     if st.sidebar.button("🚪 Log Out"):
-        # 1. Overwrite the cookie with blank text and expire it "yesterday"
-        past_date = datetime.datetime.now() - datetime.timedelta(days=1)
-        cookie_manager.set("saved_username", "", expires_at=past_date)
-        cookie_manager.delete("saved_username")
-        
-        # 2. Completely wipe all session memory
-        st.session_state.clear()
-        
-        # 3. Wait a full second for the browser to register the death of the cookie
-        time.sleep(1)
-        
-        # 4. Refresh!
-        st.rerun()
+        cookie_manager.delete("saved_username") # Destroy the cookie
+        st.session_state.clear()                # Wipe all session memory
+        time.sleep(0.5)                         # Let browser register deletion
+        st.rerun()                              # Refresh back to login screen
         
     tab1, tab2, tab3 = st.tabs(["🎛️ Balancer", "📜 History", "ℹ️ Help & Premium"])
 
