@@ -8,20 +8,25 @@ import gspread
 from chempy import balance_stoichiometry
 
 # --- Page Configuration ---
-st.set_page_config(page_title="🧪 Chemical Equation Balancer", page_icon="🧪", layout="centered")
+# FIX: Switched back to 'auto' to prevent the closing glitch on web browsers
+st.set_page_config(page_title="🧪 Chemical Equation Balancer", page_icon="🧪", layout="centered", initial_sidebar_state="auto")
 
-# --- Hide Branding (Deploy Button, Footer, Fork, Badge) ---
-# NOTE: Removed 'header {visibility: hidden;}' so the sidebar arrow comes back!
+# --- THE SAFEST CSS FIX ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            .stDeployButton {display:none;}
-            [data-testid="stToolbar"] {visibility: hidden !important;}
+            /* Safely hide the 'Deploy' Button and Main Menu without breaking the header */
+            .stAppDeployButton {display:none !important;}
+            .stDeployButton {display:none !important;}
+            #MainMenu {display: none !important;}
             [data-testid="stViewerBadge"] {display: none !important;}
+            footer {visibility: hidden !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# --- THE ULTIMATE ARROW FIX ---
+# This invisible container forces Streamlit to NEVER delete the sidebar arrow!
+st.sidebar.container()
 
 # --- 1. Initialize Cookie Manager ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
@@ -48,6 +53,11 @@ if saved_user is not None and saved_user != "":
 
 st.title("🧪 Chemical Equation Balancer")
 
+# --- FORCE THE SIDEBAR MENU ---
+st.sidebar.markdown("### 🧭 App Menu")
+if not st.session_state.logged_in:
+    st.sidebar.info("Please log in to use the balancer.")
+
 # --- PHASE 1: LOGIN PORTAL ---
 if not st.session_state.logged_in:
     st.write("### 🔑 Account Portal")
@@ -69,7 +79,6 @@ if not st.session_state.logged_in:
                 st.success("🚀 Login successful! Redirecting...")
                 
                 # CRITICAL FIX: Use Javascript to refresh the browser after 1.5 seconds.
-                # This guarantees the browser has time to finish saving the cookie file!
                 components.html(
                     """
                     <script>
