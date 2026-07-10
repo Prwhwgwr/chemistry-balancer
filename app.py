@@ -45,15 +45,22 @@ if saved_user and not st.session_state.force_logout:
     st.session_state.is_premium = True
     st.session_state.balance_count = 999 
 
-# --- 4. Database Setup ---
+## --- 4. Database Setup ---
 def init_db():
     try:
-        gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+        # Load the secrets dictionary
+        secrets_dict = dict(st.secrets["gcp_service_account"])
+        
+        # CRITICAL FIX: Force the private key to format correctly
+        secrets_dict["private_key"] = secrets_dict["private_key"].replace("\\n", "\n")
+        
+        gc = gspread.service_account_from_dict(secrets_dict)
         sh = gc.open("App Gift cards")
         return sh.sheet1
     except Exception as e:
         st.error(f"⚠️ Database connection failed: {e}")
         return None
+
 
 # --- 5. Custom CSS ---
 st.markdown("""
