@@ -20,11 +20,9 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- 1. Initialize Cookie Manager ---
-@st.cache_resource(experimental_allow_widgets=True)
+@st.cache_resource
 def get_manager():
     return stx.CookieManager()
-
-cookie_manager = get_manager()
 
 # --- 2. Define Session State Variables ---
 if "logged_in" not in st.session_state:
@@ -41,9 +39,7 @@ if "force_logout" not in st.session_state:
     st.session_state.force_logout = False
 
 # --- 3. Cookie Verification Logic ---
-# Wait slightly for cookies to load
 time.sleep(0.1)
-
 saved_user = cookie_manager.get(cookie="saved_username")
 
 if saved_user and not st.session_state.force_logout:
@@ -86,9 +82,9 @@ if not st.session_state.logged_in:
                 st.rerun()
 
 else:
-    # --- PHASE 2: THE ACTUAL APP ---
+    # --- PHASE 2: THE ACTUAL APP (Sidebar is guaranteed here) ---
     
-    # FORCE SIDEBAR CREATION FIRST
+    # 1. ALWAYS DRAW SIDEBAR FIRST
     st.sidebar.title("👤 Profile")
     st.sidebar.write(f"**User:** {st.session_state.username}")
     
@@ -102,6 +98,7 @@ else:
         
     st.sidebar.divider()
     
+    # LOGOUT BUTTON
     if st.sidebar.button("🚪 Log Out", use_container_width=True):
         st.session_state.force_logout = True
         st.session_state.logged_in = False
@@ -110,20 +107,11 @@ else:
         
         cookie_manager.delete("saved_username")
         
-        js = """
-        <script>
-        setTimeout(function() {
-            window.parent.location.reload();
-        }, 1000);
-        </script>
-        """
-        st.components.v1.html(js, height=0)
-        
         st.sidebar.warning("Logging out...")
         time.sleep(0.5)
         st.rerun()
 
-    # MAIN CONTENT
+    # 2. MAIN CONTENT
     st.title("🧪 Chemical Equation Balancer")
     
     tab1, tab2, tab3 = st.tabs(["🧮 Balancer", "📜 History", "ℹ️ Help & Premium"])
@@ -150,10 +138,12 @@ else:
                         st.session_state.daily_balances += 1
                     st.success(f"Balanced: {res}")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error: Make sure you use correct syntax (e.g. H2 + O2 -> H2O). Details: {e}")
                     
     with tab2:
         st.subheader("History")
+        if not st.session_state.history:
+            st.write("No equations balanced yet.")
         for h in st.session_state.history:
             st.write(h)
             
@@ -173,13 +163,13 @@ else:
                     sh = gc.open("App Gift cards")
                     worksheet = sh.sheet1
                     
-                    cell = worksheet.find(redeem_code)
+                    cell = worksheet.find(redeem_code.strip())
                     
                     if cell is None:
                         st.error("❌ Invalid Code! Please try again.")
                     else:
                         status = worksheet.cell(cell.row, 2).value
-                        if status == 'used':
+                        if status and status.lower() == 'used':
                             st.error("❌ This code has already been redeemed!")
                         else:
                             worksheet.update_cell(cell.row, 2, 'used')
@@ -190,12 +180,11 @@ else:
                             st.session_state.username = new_username
                             cookie_manager.set("saved_username", new_username, max_age=30*24*60*60)
                             
-                            st.success("🎉 Success! You are now a Premium user! Reloading...")
+                            st.success("🎉 Success! You are now a Premium user!")
                             time.sleep(2)
                             st.rerun()
                 except Exception as e:
                     st.error("Error connecting to database. Please check your secrets.")
-                    st.write(e)
             else:
                 st.warning("Please enter a code.")
 
