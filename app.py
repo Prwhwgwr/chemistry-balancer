@@ -20,7 +20,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 ## --- 1. Initialize Cookie Manager ---
-   cookie_manager = stx.CookieManager(key="cookie_manager")
+# cookie_manager =stx.CookieManager(key="cookie_manager")
 
 # --- 2. Define Session State Variables ---
 if "logged_in" not in st.session_state:
