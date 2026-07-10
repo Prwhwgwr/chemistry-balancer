@@ -19,13 +19,8 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- 1. Initialize Cookie Manager ---
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager()
-
-# THIS IS THE LINE THAT WAS MISSING:
-cookie_manager = get_manager()
+## --- 1. Initialize Cookie Manager ---
+   cookie_manager = stx.CookieManager(key="cookie_manager")
 
 # --- 2. Define Session State Variables ---
 if "logged_in" not in st.session_state:
